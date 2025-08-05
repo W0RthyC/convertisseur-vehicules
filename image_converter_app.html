@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Convertisseur d'Images JPEG</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            padding: 60px 20px;
+            text-align: center;
+            background: rgba(102, 126, 234, 0.05);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 30px;
+        }
+
+        .upload-area:hover {
+            border-color: #764ba2;
+            background: rgba(118, 75, 162, 0.1);
+            transform: translateY(-2px);
+        }
+
+        .upload-area.dragover {
+            border-color: #764ba2;
+            background: rgba(118, 75, 162, 0.15);
+            transform: scale(1.02);
+        }
+
+        .upload-icon {
+            font-size: 4em;
+            color: #667eea;
+            margin-bottom: 20px;
+        }
+
+        .upload-text {
+            font-size: 1.2em;
+            color: #555;
+            margin-bottom: 10px;
+        }
+
+        .upload-subtext {
+            color: #888;
+            font-size: 0.9em;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .controls {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        label {
+            font-weight: 600;
+            color: #333;
+            font-size: 0.9em;
+        }
+
+        input[type="range"] {
+            width: 200px;
+            height: 8px;
+            border-radius: 5px;
+            background: #ddd;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+        }
+
+        .quality-value {
+            font-weight: bold;
+            color: #667eea;
+            font-size: 1.1em;
+        }
+
+        .file-list {
+            margin-bottom: 30px;
+        }
+
+        .file-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 15px;
+            background: rgba(102, 126, 234, 0.05);
+            border-radius: 10px;
+            margin-bottom: 10px;
+            border-left: 4px solid #667eea;
+        }
+
+        .file-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .file-preview {
+            width: 50px;
+            height: 50px;
+            border-radius: 8px;
+            object-fit: cover;
+            border: 2px solid #fff;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .file-details {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .file-name {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .file-size {
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .file-status {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            font-weight: 600;
+        }
+
+        .status-ready {
+            background: #e8f5e8;
+            color: #4caf50;
+        }
+
+        .status-processing {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status-done {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 25px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+            transform: translateY(-2px);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            border-radius: 4px;
+            transition: width 0.3s ease;
+            width: 0%;
+        }
+
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 20px;
+            padding: 20px;
+            background: rgba(102, 126, 234, 0.05);
+            border-radius: 10px;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 20px;
+            }
+            
+            .controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .control-group {
+                align-items: center;
+            }
+            
+            .buttons {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚗 PNG → JPEG Rapide</h1>
+        
+        <div class="upload-area" id="uploadArea">
+            <div class="upload-icon">📁</div>
+            <div class="upload-text">Glissez vos images de véhicules ici</div>
+            <div class="upload-subtext">Redimensionnement + conversion JPEG automatique</div>
+            <input type="file" id="fileInput" multiple accept="image/*">
+        </div>
+
+        <div class="controls">
+            <div class="control-group">
+                <label for="qualitySlider">Qualité JPEG (75% = ~500KB)</label>
+                <input type="range" id="qualitySlider" min="50" max="95" value="75">
+                <div class="quality-value" id="qualityValue">75%</div>
+            </div>
+            <div class="control-group">
+                <label for="sizeSelect">Taille de sortie</label>
+                <select id="sizeSelect" style="padding: 8px 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 1em;">
+                    <option value="1200x800">1200x800px (Recommandé WordPress)</option>
+                    <option value="1000x667">1000x667px (Standard web)</option>
+                    <option value="800x600">800x600px (Compact)</option>
+                    <option value="1500x1000">1500x1000px (Haute qualité)</option>
+                    <option value="original">Taille originale</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label for="cropSelect">Gestion format portrait/story</label>
+                <select id="cropSelect" style="padding: 8px 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 1em;">
+                    <option value="auto">Auto-détection (recommandé)</option>
+                    <option value="crop">Toujours recadrer</option>
+                    <option value="fit">Toujours adapter (garder tout)</option>
+                    <option value="stretch">Étirer (déformation)</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label>Seuil détection story (ratio hauteur/largeur)</label>
+                <input type="range" id="ratioThreshold" min="1.3" max="2.5" step="0.1" value="1.6">
+                <div style="font-size: 0.9em; color: #666;">
+                    <span id="ratioValue">1.6</span> → Plus de <span id="ratioPercent">60%</span> plus haut que large = Détail/Défaut
+                </div>
+            </div>
+        </div>
+
+        <div class="file-list" id="fileList"></div>
+
+        <div class="progress-bar" id="progressBar" style="display: none;">
+            <div class="progress-fill" id="progressFill"></div>
+        </div>
+
+        <div class="buttons">
+            <button class="btn-primary" id="convertBtn" disabled>Convertir en JPEG</button>
+            <button class="btn-secondary" id="clearBtn">Effacer tout</button>
+        </div>
+
+        <div class="stats" id="stats" style="display: none;">
+            <div class="stat-item">
+                <div class="stat-value" id="totalFiles">0</div>
+                <div class="stat-label">Fichiers</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="originalSize">0 KB</div>
+                <div class="stat-label">Taille originale</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="compressedSize">0 KB</div>
+                <div class="stat-label">Taille compressée</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="compressionRatio">0%</div>
+                <div class="stat-label">Compression</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class ImageConverter {
+            constructor() {
+                this.files = [];
+                this.convertedFiles = [];
+                this.initializeElements();
+                this.bindEvents();
+            }
+
+            initializeElements() {
+                this.uploadArea = document.getElementById('uploadArea');
+                this.fileInput = document.getElementById('fileInput');
+                this.fileList = document.getElementById('fileList');
+                this.qualitySlider = document.getElementById('qualitySlider');
+                this.qualityValue = document.getElementById('qualityValue');
+                this.convertBtn = document.getElementById('convertBtn');
+                this.clearBtn = document.getElementById('clearBtn');
+                this.progressBar = document.getElementById('progressBar');
+                this.progressFill = document.getElementById('progressFill');
+                this.sizeSelect = document.getElementById('sizeSelect');
+                this.cropSelect = document.getElementById('cropSelect');
+                this.ratioThreshold = document.getElementById('ratioThreshold');
+                this.ratioValue = document.getElementById('ratioValue');
+                this.ratioPercent = document.getElementById('ratioPercent');
+                this.stats = document.getElementById('stats');
+            }
+
+            bindEvents() {
+                this.uploadArea.addEventListener('click', () => this.fileInput.click());
+                this.uploadArea.addEventListener('dragover', this.handleDragOver.bind(this));
+                this.uploadArea.addEventListener('dragleave', this.handleDragLeave.bind(this));
+                this.uploadArea.addEventListener('drop', this.handleDrop.bind(this));
+                
+                this.fileInput.addEventListener('change', this.handleFileSelect.bind(this));
+                this.qualitySlider.addEventListener('input', this.updateQuality.bind(this));
+                this.ratioThreshold.addEventListener('input', this.updateRatioDisplay.bind(this));
+                this.convertBtn.addEventListener('click', this.convertImages.bind(this));
+                this.clearBtn.addEventListener('click', this.clearAll.bind(this));
+            }
+
+            handleDragOver(e) {
+                e.preventDefault();
+                this.uploadArea.classList.add('dragover');
+            }
+
+            handleDragLeave(e) {
+                e.preventDefault();
+                this.uploadArea.classList.remove('dragover');
+            }
+
+            handleDrop(e) {
+                e.preventDefault();
+                this.uploadArea.classList.remove('dragover');
+                const files = Array.from(e.dataTransfer.files);
+                this.addFiles(files);
+            }
+
+            handleFileSelect(e) {
+                const files = Array.from(e.target.files);
+                this.addFiles(files);
+            }
+
+            addFiles(files) {
+                const imageFiles = files.filter(file => file.type.startsWith('image/'));
+                this.files = [...this.files, ...imageFiles];
+                this.renderFileList();
+                this.updateConvertButton();
+            }
+
+            renderFileList() {
+                this.fileList.innerHTML = '';
+                this.files.forEach((file, index) => {
+                    const fileItem = document.createElement('div');
+                    fileItem.className = 'file-item';
+                    
+                    const preview = document.createElement('img');
+                    preview.className = 'file-preview';
+                    preview.src = URL.createObjectURL(file);
+                    
+                    fileItem.innerHTML = `
+                        <div class="file-info">
+                            <div class="file-details">
+                                <div class="file-name">${file.name}</div>
+                                <div class="file-size">${this.formatFileSize(file.size)}</div>
+                            </div>
+                        </div>
+                        <div class="file-status status-ready">Prêt</div>
+                    `;
+                    
+                    fileItem.querySelector('.file-info').insertBefore(preview, fileItem.querySelector('.file-details'));
+                    this.fileList.appendChild(fileItem);
+                });
+            }
+
+            updateQuality() {
+                const quality = this.qualitySlider.value;
+                this.qualityValue.textContent = `${quality}%`;
+            }
+
+            updateRatioDisplay() {
+                const ratio = this.ratioThreshold.value;
+                const percent = Math.round((ratio - 1) * 100);
+                this.ratioValue.textContent = ratio;
+                this.ratioPercent.textContent = `${percent}%`;
+            }
+
+            updateConvertButton() {
+                this.convertBtn.disabled = this.files.length === 0;
+            }
+
+            formatFileSize(bytes) {
+                if (bytes === 0) return '0 B';
+                const k = 1024;
+                const sizes = ['B', 'KB', 'MB', 'GB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+            }
+
+            async convertImages() {
+                if (this.files.length === 0) return;
+
+                this.convertBtn.disabled = true;
+                this.progressBar.style.display = 'block';
+                this.convertedFiles = [];
+
+                const quality = this.qualitySlider.value / 100;
+                const targetSize = this.sizeSelect.value;
+                const cropMode = this.cropSelect.value;
+                const ratioThreshold = parseFloat(this.ratioThreshold.value);
+                let originalTotalSize = 0;
+                let compressedTotalSize = 0;
+
+                for (let i = 0; i < this.files.length; i++) {
+                    const file = this.files[i];
+                    originalTotalSize += file.size;
+                    
+                    const progress = ((i + 1) / this.files.length) * 100;
+                    this.progressFill.style.width = `${progress}%`;
+                    
+                    const fileItems = this.fileList.querySelectorAll('.file-item');
+                    const statusElement = fileItems[i].querySelector('.file-status');
+                    statusElement.textContent = 'Traitement...';
+                    statusElement.className = 'file-status status-processing';
+                    
+                    try {
+                        const convertedBlob = await this.convertToJPEG(file, quality, targetSize, cropMode, ratioThreshold);
+                        compressedTotalSize += convertedBlob.size;
+                        
+                        const fileName = file.name.replace(/\.[^/.]+$/, '') + '.jpg';
+                        this.convertedFiles.push({
+                            name: fileName,
+                            blob: convertedBlob
+                        });
+                        
+                        statusElement.textContent = 'Terminé';
+                        statusElement.className = 'file-status status-done';
+                    } catch (error) {
+                        console.error('Erreur lors de la conversion:', error);
+                        statusElement.textContent = 'Erreur';
+                        statusElement.className = 'file-status status-error';
+                    }
+                }
+
+                this.showStats(originalTotalSize, compressedTotalSize);
+                await this.createAndDownloadZip();
+                
+                this.convertBtn.disabled = false;
+                this.progressBar.style.display = 'none';
+            }
+
+            convertToJPEG(file, quality, targetSize, cropMode, ratioThreshold) {
+                return new Promise((resolve, reject) => {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    const img = new Image();
+                    
+                    img.onload = () => {
+                        let canvasWidth, canvasHeight;
+                        
+                        if (targetSize === 'original') {
+                            canvasWidth = img.width;
+                            canvasHeight = img.height;
+                        } else {
+                            [canvasWidth, canvasHeight] = targetSize.split('x').map(Number);
+                        }
+                        
+                        // AUTO-DÉTECTION : Si mode auto, détecter si c'est un détail/défaut
+                        let actualCropMode = cropMode;
+                        if (cropMode === 'auto') {
+                            const imageRatio = img.height / img.width; // hauteur/largeur
+                            
+                            if (imageRatio >= ratioThreshold) {
+                                // Image très haute = probablement un détail/défaut
+                                actualCropMode = 'fit'; // Garder tout visible
+                                console.log(`📱 Détail détecté (ratio ${imageRatio.toFixed(2)}) → Mode "garder tout"`);
+                            } else {
+                                // Image normale = photo générale du véhicule
+                                actualCropMode = 'crop'; // Recadrer pour un beau format
+                                console.log(`🚗 Photo véhicule (ratio ${imageRatio.toFixed(2)}) → Mode "recadrer"`);
+                            }
+                        }
+                        
+                        canvas.width = canvasWidth;
+                        canvas.height = canvasHeight;
+                        
+                        // Fond blanc
+                        ctx.fillStyle = 'white';
+                        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+                        
+                        ctx.imageSmoothingEnabled = true;
+                        ctx.imageSmoothingQuality = 'high';
+                        
+                        const imgRatio = img.width / img.height;
+                        const canvasRatio = canvasWidth / canvasHeight;
+                        
+                        let drawWidth, drawHeight, offsetX, offsetY;
+                        
+                        if (actualCropMode === 'crop') {
+                            // RECADRAGE : Remplit tout l'espace, coupe ce qui dépasse
+                            if (imgRatio > canvasRatio) {
+                                drawHeight = canvasHeight;
+                                drawWidth = drawHeight * imgRatio;
+                                offsetX = (canvasWidth - drawWidth) / 2;
+                                offsetY = 0;
+                            } else {
+                                drawWidth = canvasWidth;
+                                drawHeight = drawWidth / imgRatio;
+                                offsetX = 0;
+                                offsetY = (canvasHeight - drawHeight) / 2;
+                            }
+                        } else if (actualCropMode === 'fit') {
+                            // ADAPTATION : Garde tout visible, ajoute des bandes blanches
+                            if (imgRatio > canvasRatio) {
+                                drawWidth = canvasWidth;
+                                drawHeight = drawWidth / imgRatio;
+                                offsetX = 0;
+                                offsetY = (canvasHeight - drawHeight) / 2;
+                            } else {
+                                drawHeight = canvasHeight;
+                                drawWidth = drawHeight * imgRatio;
+                                offsetX = (canvasWidth - drawWidth) / 2;
+                                offsetY = 0;
+                            }
+                        } else {
+                            // ÉTIREMENT : Déforme pour remplir exactement
+                            drawWidth = canvasWidth;
+                            drawHeight = canvasHeight;
+                            offsetX = 0;
+                            offsetY = 0;
+                        }
+                        
+                        ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
+                        canvas.toBlob(resolve, 'image/jpeg', quality);
+                    };
+                    
+                    img.onerror = reject;
+                    img.src = URL.createObjectURL(file);
+                });
+            }
+
+            async createAndDownloadZip() {
+                const zip = new JSZip();
+                
+                this.convertedFiles.forEach(file => {
+                    zip.file(file.name, file.blob);
+                });
+                
+                const zipBlob = await zip.generateAsync({ type: 'blob' });
+                
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(zipBlob);
+                link.download = 'vehicules_jpeg.zip';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+
+            showStats(originalSize, compressedSize) {
+                const compressionRatio = ((originalSize - compressedSize) / originalSize * 100).toFixed(1);
+                
+                document.getElementById('totalFiles').textContent = this.files.length;
+                document.getElementById('originalSize').textContent = this.formatFileSize(originalSize);
+                document.getElementById('compressedSize').textContent = this.formatFileSize(compressedSize);
+                document.getElementById('compressionRatio').textContent = `${compressionRatio}%`;
+                
+                this.stats.style.display = 'flex';
+            }
+
+            clearAll() {
+                this.files = [];
+                this.convertedFiles = [];
+                this.fileList.innerHTML = '';
+                this.stats.style.display = 'none';
+                this.progressBar.style.display = 'none';
+                this.updateConvertButton();
+            }
+        }
+
+        // Initialisation de l'application
+        document.addEventListener('DOMContentLoaded', () => {
+                            new ImageConverter();
+                
+                // Initialiser l'affichage du ratio
+                document.querySelector('#ratioThreshold').dispatchEvent(new Event('input'));
+        });
+    </script>
+</body>
+</html>
